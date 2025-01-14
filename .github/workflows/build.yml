@@ -37,7 +37,7 @@ jobs:
     env: 
       ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
     outputs:
-      tag: ${{ steps.image_tag.outputs.TAG }}
+      uri: ${{ steps.image_tag.outputs.URI }}
     strategy:
       matrix:
         include:
@@ -64,11 +64,38 @@ jobs:
       run: |
         TAG="${GITHUB_SHA::7}"
         echo TAG=$TAG >> $GITHUB_OUTPUT
+        URI=${{ secrets.ECR_REPOSITORY_URL }}:${{ matrix.tag }}-${{ steps.image_tag.outputs.TAG }}
+        echo URI=$URI >> $GITHUB_OUTPUT
 
     - name: Build and Push to ECR
       run: |
         docker buildx build \
           --file ${{ matrix.dockerfile }} \
-          --tag ${{ secrets.ECR_REPOSITORY_URL }}:${{ matrix.tag }}${{ steps.image_tag.outputs.TAG }} \
+          --tag ${{ steps.image_tag.outputs.URI }} \
           --no-cache \
           --push .
+  
+  update-ecs:
+    needs: [get-environment, build]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.get-environment.outputs.environment }}
+    env: 
+      ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
+      URI: ${{ needs.build.outputs.uri }}
+    
+    steps: 
+    - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.URI }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true

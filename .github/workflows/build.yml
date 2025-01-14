@@ -39,7 +39,7 @@ jobs:
       Dockerfile: "./Dockerfile"
       Tag: "${{ needs.get-environment.outputs.environment }}-app"
     outputs:
-      uri: ${{ steps.image_tag.outputs.URI }}
+      URI: "${{ steps.image_tag.outputs.URI }}"
 
     steps:
     - uses: actions/checkout@v4
@@ -78,7 +78,7 @@ jobs:
     environment: ${{ needs.get-environment.outputs.environment }}
     env: 
       ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
-      URI: ${{ needs.build.outputs.uri }}
+      URI: ${{ needs.build.outputs.URI }}
     
     steps: 
     - name: Fill in the new image ID in the Amazon ECS task definition

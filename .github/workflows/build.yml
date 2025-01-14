@@ -39,7 +39,7 @@ jobs:
       Dockerfile: "./Dockerfile"
       Tag: "${{ needs.get-environment.outputs.environment }}-app"
     outputs:
-      URI: "${{ steps.image_tag.outputs.URI }}"
+      IMAGE: "${{ steps.image_tag.outputs.IMAGE }}"
 
     steps:
     - uses: actions/checkout@v4
@@ -60,15 +60,15 @@ jobs:
       id: image_tag
       run: |
         TAG="${GITHUB_SHA::7}"
-        URI="${{ secrets.ECR_REPOSITORY_URL }}:${{ env.Tag }}-$TAG"
-        echo "URI=$URI" >> $GITHUB_ENV
-        echo "URI=$URI" >> $GITHUB_OUTPUT
+        IMAGE="${{ secrets.ECR_REPOSITORY_URL }}:${{ env.Tag }}-$TAG"
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+        echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
 
     - name: Build and Push to ECR
       run: |
         docker buildx build \
           --file ${{ env.Dockerfile }} \
-          --tag ${{ steps.image_tag.outputs.URI }} \
+          --tag ${{ steps.image_tag.outputs.IMAGE }} \
           --no-cache \
           --push .
   
@@ -78,7 +78,7 @@ jobs:
     environment: ${{ needs.get-environment.outputs.environment }}
     env: 
       ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
-      URI: ${{ needs.build.outputs.URI }}
+      IMAGE: ${{ needs.build.outputs.IMAGE }}
     
     steps: 
     - name: Fill in the new image ID in the Amazon ECS task definition
@@ -87,7 +87,7 @@ jobs:
       with:
         task-definition: ${{ vars.ECS_TASK_DEFINITION }}
         container-name: ${{ vars.CONTAINER_NAME }}
-        image: ${{ env.URI }}
+        image: ${{ env.IMAGE }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a

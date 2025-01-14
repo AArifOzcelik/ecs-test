@@ -38,8 +38,6 @@ jobs:
       ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
       Dockerfile: "./Dockerfile"
       Tag: "${{ needs.get-environment.outputs.environment }}-app"
-    outputs:
-      IMAGE: "${{ steps.image_tag.outputs.IMAGE }}"
 
     steps:
     - uses: actions/checkout@v4
@@ -71,23 +69,14 @@ jobs:
           --tag ${{ steps.image_tag.outputs.IMAGE }} \
           --no-cache \
           --push .
-  
-  update-ecs:
-    needs: [get-environment, build]
-    runs-on: ubuntu-latest
-    environment: ${{ needs.get-environment.outputs.environment }}
-    env: 
-      ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
-      IMAGE: ${{ needs.build.outputs.IMAGE }}
-    
-    steps: 
+
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
       uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
       with:
         task-definition: ${{ vars.ECS_TASK_DEFINITION }}
         container-name: ${{ vars.CONTAINER_NAME }}
-        image: ${{ env.IMAGE }}
+        image: ${{ steps.image_tag.outputs.IMAGE }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a

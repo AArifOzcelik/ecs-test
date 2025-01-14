@@ -64,7 +64,7 @@ jobs:
       run: |
         TAG="${GITHUB_SHA::7}"
         echo TAG=$TAG >> $GITHUB_OUTPUT
-        URI=${{ secrets.ECR_REPOSITORY_URL }}:${{ matrix.tag }}-${{ steps.image_tag.outputs.TAG }}
+        URI=${{ secrets.ECR_REPOSITORY_URL }}:${{ matrix.tag }}-$TAG
         echo URI=$URI >> $GITHUB_OUTPUT
 
     - name: Build and Push to ECR

@@ -1,0 +1,83 @@
+name: NextJS Test DEV
+
+on:
+  push:
+    branches:
+      - dev
+    paths-ignore:
+      - ".github/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  get-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.current_environment.outputs.ENVIRONMENT }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Get Environment by Branch
+      id: current_environment
+      run: |
+        ENVIRONMENT=${GITHUB_REF##*/}
+        echo ENVIRONMENT=$ENVIRONMENT >> $GITHUB_OUTPUT
+
+  build:
+    needs: get-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.get-environment.outputs.environment }}
+    env: 
+      ENVIRONMENT: ${{ needs.get-environment.outputs.environment }}
+      Dockerfile: "./Dockerfile"
+      Tag: "${{ needs.get-environment.outputs.environment }}-app"
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-region: eu-west-1
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-duration-seconds: 1200
+        role-session-name: test-app-role-session
+
+    - name: Login to Amazon ECR Private
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+  
+    - name: Generate Image Tag by SHA
+      id: image_tag
+      run: |
+        TAG="${GITHUB_SHA::7}"
+        IMAGE="${{ secrets.ECR_REPOSITORY_URL }}:${{ env.Tag }}-$TAG"
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+        echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+
+    - name: Build and Push to ECR
+      run: |
+        docker buildx build \
+          --file ${{ env.Dockerfile }} \
+          --tag ${{ steps.image_tag.outputs.IMAGE }} \
+          --no-cache \
+          --push .
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ vars.ECS_TASK_DEFINITION }}
+        container-name: ${{ vars.CONTAINER_NAME }}
+        image: ${{ steps.image_tag.outputs.IMAGE }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ vars.ECS_SERVICE }}
+        cluster: ${{ vars.ECS_CLUSTER }}
+        wait-for-service-stability: true

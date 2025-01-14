@@ -1,10 +1,9 @@
-name: CI for EaaS Backend OCPP Application
+name: NextJS Test STAGING
 
 on:
   push:
     branches:
-      - master
-      - dev
+      - staging
     paths-ignore:
       - ".github/**"
 
@@ -25,9 +24,6 @@ jobs:
       id: current_environment
       run: |
         ENVIRONMENT=${GITHUB_REF##*/}
-        if [[ "$ENVIRONMENT" == "master" ]]; then
-          ENVIRONMENT="prod"
-        fi
         echo ENVIRONMENT=$ENVIRONMENT >> $GITHUB_OUTPUT
 
   build:
@@ -48,7 +44,7 @@ jobs:
         aws-region: eu-west-1
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         role-duration-seconds: 1200
-        role-session-name: eaas-backend-ocpp-app
+        role-session-name: test-app-role-session
 
     - name: Login to Amazon ECR Private
       id: login-ecr
